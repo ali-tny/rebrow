@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[requires]
+python_version = "3.6"
+
+[packages]
+redis = "*"
+flask = "*"
+gunicorn = "*"
+
+[dev-packages]
+# Symlink to project root
+rebrow = {editable = true,path = "."}
