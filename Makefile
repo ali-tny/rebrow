@@ -10,3 +10,8 @@ serve-gunicorn:
 		--config $(shell pwd)/deploy/gunicorn.conf\
 		--log-config $(shell pwd)/deploy/logging.conf\
 		rebrow.server:app
+
+lint:
+	pipenv run flake8 rebrow
+	pipenv run mypy rebrow
+	pipenv run pydocstyle rebrow

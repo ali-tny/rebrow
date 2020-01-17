@@ -14,3 +14,7 @@ gunicorn = "*"
 [dev-packages]
 # Symlink to project root
 rebrow = {editable = true,path = "."}
+# Linting
+flake8 = "*"
+mypy = "*"
+pydocstyle = "*"

@@ -1,13 +1,14 @@
 # encoding: utf8
 
-from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash, Markup, Response, json
-import redis
+import base64
+import os
 import time
 from datetime import datetime, timedelta
-import os
-import base64
 
-app = Flask(__name__)
+import flask
+import redis
+
+app = flask.Flask(__name__)
 
 # key for cookie safety. Shal be overridden using ENV var SECRET_KEY
 app.secret_key = os.getenv("SECRET_KEY", "lasfuoi3ro8w7gfow3bwiubdwoeg7p23r8g23rg")
@@ -15,13 +16,32 @@ app.secret_key = os.getenv("SECRET_KEY", "lasfuoi3ro8w7gfow3bwiubdwoeg7p23r8g23r
 # Description of info keys
 # TODO: to be continued.
 serverinfo_meta = {
-    "aof_current_rewrite_time_sec": "Duration of the on-going <abbr title='Append-Only File'>AOF</abbr> rewrite operation if any",
-    "aof_enabled": "Flag indicating <abbr title='Append-Only File'>AOF</abbr> logging is activated",
-    "aof_last_bgrewrite_status": "Status of the last <abbr title='Append-Only File'>AOF</abbr> rewrite operation",
-    "aof_last_rewrite_time_sec": "Duration of the last <abbr title='Append-Only File'>AOF</abbr> rewrite operation in seconds",
-    "aof_last_write_status": "Status of last <abbr title='Append-Only File'>AOF</abbr> write operation",
-    "aof_rewrite_in_progress": "Flag indicating a <abbr title='Append-Only File'>AOF</abbr> rewrite operation is on-going",
-    "aof_rewrite_scheduled": "Flag indicating an <abbr title='Append-Only File'>AOF</abbr> rewrite operation will be scheduled once the on-going RDB save is complete",
+    "aof_current_rewrite_time_sec": (
+        "Duration of the on-going <abbr title='Append-Only File'>"
+        "AOF</abbr> rewrite operation if any"
+    ),
+    "aof_enabled": (
+        "Flag indicating <abbr title='Append-Only File'>" "AOF</abbr> logging is activated"
+    ),
+    "aof_last_bgrewrite_status": (
+        "Status of the last <abbr title='Append-Only File'>" "AOF</abbr> rewrite operation"
+    ),
+    "aof_last_rewrite_time_sec": (
+        "Duration of the last <abbr title='Append-Only File'>"
+        "AOF</abbr> rewrite operation in seconds"
+    ),
+    "aof_last_write_status": (
+        "Status of last <abbr title='Append-Only File'>" "AOF</abbr> write operation"
+    ),
+    "aof_rewrite_in_progress": (
+        "Flag indicating a <abbr title='Append-Only File'>"
+        "AOF</abbr> rewrite operation is on-going"
+    ),
+    "aof_rewrite_scheduled": (
+        "Flag indicating an <abbr title='Append-Only File'>"
+        "AOF</abbr> rewrite operation will be scheduled once the on-going"
+        "RDB save is complete"
+    ),
     "arch_bits": "Architecture (32 or 64 bits)",
     "blocked_clients": "Number of clients pending on a blocking call (BLPOP, BRPOP, BRPOPLPUSH)",
     "client_biggest_input_buf": "biggest input buffer among current client connections",
@@ -33,7 +53,7 @@ serverinfo_meta = {
     "cmdstat_dump": "Statistics for the dump command",
     "cmdstat_expire": "Statistics for the expire command",
     "cmdstat_flushall": "Statistics for the flushall command",
-    "cmdstat_get":"Statistics for the get command",
+    "cmdstat_get": "Statistics for the get command",
     "cmdstat_hgetall": "Statistics for the hgetall command",
     "cmdstat_hkeys": "Statistics for the hkeys command",
     "cmdstat_hmset": "Statistics for the hmset command",
@@ -114,76 +134,77 @@ serverinfo_meta = {
     "used_memory_lua": None,
     "used_memory_peak": None,
     "used_memory_peak_human": None,
-    "used_memory_rss": None
+    "used_memory_rss": None,
 }
 
 
-@app.route("/", methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def login():
-    """
-    Start page
-    """
-    if request.method == 'POST':
+    """Start page."""
+    if flask.request.method == "POST":
         # TODO: test connection, handle failures
-        host = request.form["host"]
-        port = int(request.form["port"])
-        db = int(request.form["db"])
-        url = url_for("server_db", host=host, port=port, db=db)
-        return redirect(url)
-    else: 
+        host = flask.request.form["host"]
+        port = int(flask.request.form["port"])
+        db = int(flask.request.form["db"])
+        url = flask.url_for("server_db", host=host, port=port, db=db)
+        return flask.redirect(url)
+    else:
         s = time.time()
-        return render_template('login.html',
-            duration=time.time()-s)
+        return flask.render_template("login.html", duration=time.time() - s)
 
 
 @app.route("/<host>:<int:port>/<int:db>/")
 def server_db(host, port, db):
-    """
-    List all databases and show info on server
-    """
+    """List all databases and show info on server."""
     s = time.time()
     r = redis.StrictRedis(host=host, port=port, db=0)
     info = r.info("all")
     dbsize = r.dbsize()
-    return render_template('server.html',
+    return flask.render_template(
+        "server.html",
         host=host,
         port=port,
         db=db,
         info=info,
         dbsize=dbsize,
         serverinfo_meta=serverinfo_meta,
-        duration=time.time()-s)
+        duration=time.time() - s,
+    )
 
 
-@app.route("/<host>:<int:port>/<int:db>/keys/", methods=['GET', 'POST'])
+@app.route("/<host>:<int:port>/<int:db>/keys/", methods=["GET", "POST"])
 def keys(host, port, db):
-    """
-    List keys for one database
-    """
+    """List keys for one database."""
     s = time.time()
     r = redis.StrictRedis(host=host, port=port, db=db)
-    if request.method == "POST":
-        action = request.form["action"]
+    if flask.request.method == "POST":
+        action = flask.request.form["action"]
         app.logger.debug(action)
         if action == "delkey":
-            if request.form["key"] is not None:
-                result = r.delete(request.form["key"])
+            if flask.request.form["key"] is not None:
+                result = r.delete(flask.request.form["key"])
                 if result == 1:
-                    flash("Key %s has been deleted." % request.form["key"], category="info")
+                    flask.flash(
+                        "Key %s has been deleted." % flask.request.form["key"], category="info"
+                    )
                 else:
-                    flash("Key %s could not be deleted." % request.form["key"], category="error")
-        return redirect(request.url)
+                    flask.flash(
+                        "Key %s could not be deleted." % flask.request.form["key"],
+                        category="error",
+                    )
+        return flask.redirect(flask.request.url)
     else:
-        offset = int(request.args.get("offset", "0"))
-        perpage = int(request.args.get("perpage", "10"))
-        pattern = request.args.get('pattern', '*')
+        offset = int(flask.request.args.get("offset", "0"))
+        perpage = int(flask.request.args.get("perpage", "10"))
+        pattern = flask.request.args.get("pattern", "*")
         dbsize = r.dbsize()
         keys = sorted(r.keys(pattern))
-        limited_keys = keys[offset:(perpage+offset)]
+        limited_keys = keys[offset : (perpage + offset)]
         types = {}
         for key in limited_keys:
             types[key] = r.type(key)
-        return render_template('keys.html',
+        return flask.render_template(
+            "keys.html",
             host=host,
             port=port,
             db=db,
@@ -194,29 +215,30 @@ def keys(host, port, db):
             perpage=perpage,
             pattern=pattern,
             num_keys=len(keys),
-            duration=time.time()-s)
+            duration=time.time() - s,
+        )
 
 
 @app.route("/<host>:<int:port>/<int:db>/keys/<key>/")
 def key(host, port, db, key):
-    """
-    Show a specific key.
-    key is expected to be URL-safe base64 encoded
+    """Show a specific key.
+
+    `key` is expected to be URL-safe base64 encoded.
     """
     key = base64.urlsafe_b64decode(key.encode("utf8"))
     s = time.time()
     r = redis.StrictRedis(host=host, port=port, db=db)
     dump = r.dump(key)
     if dump is None:
-        abort(404)
-    #if t is None:
-    #    abort(404)
+        flask.abort(404)
+    # if t is None:
+    #    flask.abort(404)
     size = len(dump)
     del dump
     t = r.type(key)
     ttl = r.pttl(key)
     if t == "string":
-        val = r.get(key).decode('utf-8', 'replace')
+        val = r.get(key).decode("utf-8", "replace")
     elif t == "list":
         val = r.lrange(key, 0, -1)
     elif t == "hash":
@@ -225,7 +247,8 @@ def key(host, port, db, key):
         val = r.smembers(key)
     elif t == "zset":
         val = r.zrange(key, 0, -1, withscores=True)
-    return render_template('key.html',
+    return flask.render_template(
+        "key.html",
         host=host,
         port=port,
         db=db,
@@ -236,20 +259,17 @@ def key(host, port, db, key):
         ttl=ttl / 1000.0,
         now=datetime.utcnow(),
         expiration=datetime.utcnow() + timedelta(seconds=ttl / 1000.0),
-        duration=time.time()-s)
+        duration=time.time() - s,
+    )
 
 
 @app.route("/<host>:<int:port>/<int:db>/pubsub/")
 def pubsub(host, port, db):
-    """
-    List PubSub channels
-    """
+    """List PubSub channels."""
     s = time.time()
-    return render_template('pubsub.html',
-        host=host,
-        port=port,
-        db=db,
-        duration=time.time()-s)
+    return flask.render_template(
+        "pubsub.html", host=host, port=port, db=db, duration=time.time() - s
+    )
 
 
 def pubsub_event_stream(host, port, db, pattern):
@@ -258,22 +278,23 @@ def pubsub_event_stream(host, port, db, pattern):
     p.psubscribe(pattern)
     for message in p.listen():
         if message["type"] != "psubscribe" and message["data"] != "1":
-            yield 'data: %s\n\n' % json.dumps(message)
+            yield "data: %s\n\n" % flask.json.dumps(message)
 
 
 @app.route("/<host>:<int:port>/<int:db>/pubsub/api/")
 def pubsub_ajax(host, port, db):
-    return Response(pubsub_event_stream(host, port, db, pattern="*"),
-           mimetype="text/event-stream")
+    return flask.Response(
+        pubsub_event_stream(host, port, db, pattern="*"), mimetype="text/event-stream"
+    )
 
 
-@app.template_filter('urlsafe_base64')
+@app.template_filter("urlsafe_base64")
 def urlsafe_base64_encode(s):
-    if type(s) == 'Markup':
+    if type(s) == "Markup":
         s = s.unescape()
-    s = s.encode('utf8')
+    s = s.encode("utf8")
     s = base64.urlsafe_b64encode(s)
-    return Markup(s)
+    return flask.Markup(s)
 
 
 if __name__ == "__main__":
